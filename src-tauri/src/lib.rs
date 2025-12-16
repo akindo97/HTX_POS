@@ -300,7 +300,7 @@ fn bool_to_sql(value: bool) -> i64 {
 }
 
 const DEFAULT_CASHIER_SEED: &[(&str, &str, &str, &str, bool, Option<&str>)] = &[
-    ("linh", "Linh", "Trưởng ca", "08:05", true, Some("1234")),
+    ("Duo Ngoc", "Đức Ngọc", "Trưởng ca", "08:05", true, Some("1508")),
     ("hoang", "Hoàng", "Thu ngân", "08:10", false, None),
     ("an", "An", "Thu ngân", "Đang nghỉ", true, Some("5678")),
     ("vi", "Vi", "Thu ngân", "Hôm qua", false, None),

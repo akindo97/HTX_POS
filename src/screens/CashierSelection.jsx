@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 
 // Danh sách thu ngân fallback khi chưa có dữ liệu từ SQLite
 const fallbackCashiers = [
-  { code: "linh", name: "Linh", role: "Trưởng ca", lastActive: "08:05", requirePin: true, pin: "1234" },
-  { code: "hoang", name: "Hoàng", role: "Thu ngân", lastActive: "08:10", requirePin: false },
-  { code: "an", name: "An", role: "Thu ngân", lastActive: "Đang nghỉ", requirePin: true, pin: "5678" },
-  { code: "vi", name: "Vi", role: "Thu ngân", lastActive: "Hôm qua", requirePin: false },
+  // { code: "linh", name: "Linh", role: "Trưởng ca", lastActive: "08:05", requirePin: true, pin: "1234" },
+  // { code: "hoang", name: "Hoàng", role: "Thu ngân", lastActive: "08:10", requirePin: false },
+  // { code: "an", name: "An", role: "Thu ngân", lastActive: "Đang nghỉ", requirePin: true, pin: "5678" },
+  // { code: "vi", name: "Vi", role: "Thu ngân", lastActive: "Hôm qua", requirePin: false },
 ];
 
 const normalizeCashierRecord = (record) => ({
@@ -20,7 +20,7 @@ const normalizeCashierRecord = (record) => ({
 });
 
 const CashierSelection = ({ onBack, onSelect }) => {
-  const [cashiers, setCashiers] = useState(fallbackCashiers);
+  const [cashiers, setCashiers] = useState([]);
   const [selectedCode, setSelectedCode] = useState(null);
   const [pinValue, setPinValue] = useState("");
   const [isLoading, setIsLoading] = useState(true);
