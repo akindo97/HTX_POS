@@ -38,7 +38,11 @@ const ReceiptPrinter = ({ data, onAfterPrint }) => {
 
   const target = document.body;
   const store = data.store ?? {};
-  const paperWidth = data.paperWidth ?? "58mm";
+  const defaultStoreAddress = "HTXDVNN Diễn Quảng\nXóm 4, xã Minh Châu";
+  const storeAddress = (store.address ?? defaultStoreAddress).trim();
+  const storeAddressLines = storeAddress ? storeAddress.split(/\n+/) : [];
+  const paperSize = "A5";
+  const paperWidth = "148mm";
   const invoiceNumber = data.invoiceNumber ?? "N/A";
   const createdAt = data.createdAt
     ? new Date(data.createdAt).toLocaleString("vi-VN")
@@ -49,13 +53,21 @@ const ReceiptPrinter = ({ data, onAfterPrint }) => {
   const discount = data.discount ?? 0;
   const total = data.total ?? subtotal - discount;
   const paidCash = data.paidCash ?? total;
+  const paidAmount = data.paidAmount ?? Math.min(total, paidCash);
   const changeDue = data.changeDue ?? Math.max(paidCash - total, 0);
+  const debtAmount = data.debtAmount ?? Math.max(total - paidAmount, 0);
   const tax = data.tax ?? 0;
   const footerText = store.footer ?? "Cảm ơn quý khách!";
+  const customerName = (data.customerName ?? "").trim();
+  const customerAddress = (data.customerAddress ?? "").trim();
+  const customerPlaceholder = "..............";
+  const displayCustomerName = customerName || customerPlaceholder;
+  const displayCustomerAddress = customerAddress || customerPlaceholder;
+  const debtReason = data.debtReason?.trim();
 
   const styleContent = `
     @page {
-      size: ${paperWidth} auto;
+      size: ${paperSize};
       margin: 0;
     }
     @media print {
@@ -73,12 +85,18 @@ const ReceiptPrinter = ({ data, onAfterPrint }) => {
         position: absolute;
         inset: 0;
         margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
       }
     }
     .receipt-print-root {
       position: fixed;
       top: 0;
       left: 0;
+      display: none;
       width: 0;
       height: 0;
       z-index: 9999;
@@ -114,6 +132,9 @@ const ReceiptPrinter = ({ data, onAfterPrint }) => {
     .receipt-meta {
       font-size: 11px;
       margin-bottom: 4px;
+    }
+    .receipt-customer {
+      margin-bottom: 6px;
     }
     .receipt-items {
       margin: 6px 0;
@@ -164,13 +185,21 @@ const ReceiptPrinter = ({ data, onAfterPrint }) => {
       <div className="receipt-wrapper">
         <div className="receipt-header">
           <div className="receipt-title">{store.name ?? "HTX POS"}</div>
-          {store.address && <p className="receipt-subtitle">{store.address}</p>}
+          {storeAddressLines.map((line, index) => (
+            <p className="receipt-subtitle" key={`store-address-${index}`}>
+              {line}
+            </p>
+          ))}
           {store.phone && <p className="receipt-subtitle">☎ {store.phone}</p>}
         </div>
         <div className="receipt-divider" />
         <div className="receipt-meta">Số hoá đơn: {invoiceNumber}</div>
         <div className="receipt-meta">Ngày giờ: {createdAt}</div>
         <div className="receipt-meta">Thu ngân: {cashierName}</div>
+        <div className="receipt-customer">
+          <div className="receipt-meta">Tên khách hàng: {displayCustomerName}</div>
+          <div className="receipt-meta">Địa chỉ: {displayCustomerAddress}</div>
+        </div>
         <div className="receipt-divider" />
         <div className="receipt-items">
           {items.map((item) => {
@@ -234,9 +263,23 @@ const ReceiptPrinter = ({ data, onAfterPrint }) => {
           <strong>{formatCurrency(paidCash)}</strong>
         </div>
         <div className="receipt-totals-row">
+          <span>Số tiền đã thanh toán</span>
+          <strong>{formatCurrency(paidAmount)}</strong>
+        </div>
+        <div className="receipt-totals-row">
           <span>Tiền thừa</span>
           <strong>{formatCurrency(changeDue)}</strong>
         </div>
+        <div className="receipt-totals-row">
+          <span>Tiền nợ</span>
+          <strong>{formatCurrency(debtAmount)}</strong>
+        </div>
+        {debtAmount > 0 && debtReason && (
+          <div className="receipt-totals-row">
+            <span>Lý do nợ</span>
+            <strong>{debtReason}</strong>
+          </div>
+        )}
         <div className="receipt-divider" />
         {data.note && (
           <div style={{ fontSize: "11px", marginBottom: "6px", whiteSpace: "pre-wrap" }}>

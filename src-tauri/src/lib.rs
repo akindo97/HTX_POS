@@ -82,6 +82,7 @@ struct PaymentRecord {
     discount: i64,
     paid_cash: i64,
     change_due: i64,
+    debt_amount: i64,
     note: Option<String>,
     created_at: String,
     items: Vec<PaymentItemRecord>,
@@ -124,6 +125,7 @@ struct CreatePaymentPayload {
     discount: i64,
     paid_cash: i64,
     change_due: i64,
+    debt_amount: i64,
     note: Option<String>,
     items: Vec<PaymentItemInput>,
 }
@@ -207,6 +209,15 @@ fn ensure_payment_item_columns(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_payment_columns(conn: &Connection) -> Result<(), String> {
+    add_column_if_missing(
+        conn,
+        "payments",
+        "debt_amount",
+        "INTEGER NOT NULL DEFAULT 0",
+    )
+}
+
 fn round_money(value: f64) -> i64 {
     if MONEY_ROUNDING_MODE == "round" {
         return value.round().max(0.0) as i64;
@@ -240,6 +251,7 @@ fn initialize_schema(conn: &Connection) -> Result<(), String> {
             discount INTEGER NOT NULL DEFAULT 0,
             paid_cash INTEGER NOT NULL,
             change_due INTEGER NOT NULL,
+            debt_amount INTEGER NOT NULL DEFAULT 0,
             note TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
@@ -280,6 +292,7 @@ fn initialize_schema(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|err| err.to_string())?;
     ensure_payment_item_columns(conn)?;
+    ensure_payment_columns(conn)?;
     seed_cashiers_if_empty(conn)?;
     Ok(())
 }
@@ -507,6 +520,7 @@ struct PaymentRow {
     discount: i64,
     paid_cash: i64,
     change_due: i64,
+    debt_amount: i64,
     note: Option<String>,
     created_at: String,
 }
@@ -514,7 +528,7 @@ struct PaymentRow {
 fn fetch_payment_row(conn: &Connection, id: i64) -> Result<PaymentRow, String> {
     conn.query_row(
         "SELECT id, invoice_number, cashier_name, subtotal, tax, total, discount,
-                paid_cash, change_due, note, created_at
+                paid_cash, change_due, debt_amount, note, created_at
          FROM payments
          WHERE id = ?1",
         [id],
@@ -529,8 +543,9 @@ fn fetch_payment_row(conn: &Connection, id: i64) -> Result<PaymentRow, String> {
                 discount: row.get(6)?,
                 paid_cash: row.get(7)?,
                 change_due: row.get(8)?,
-                note: row.get(9)?,
-                created_at: row.get(10)?,
+                debt_amount: row.get(9)?,
+                note: row.get(10)?,
+                created_at: row.get(11)?,
             })
         },
     )
@@ -593,6 +608,7 @@ fn hydrate_payment_record(conn: &Connection, row: PaymentRow) -> Result<PaymentR
         discount: row.discount,
         paid_cash: row.paid_cash,
         change_due: row.change_due,
+        debt_amount: row.debt_amount,
         note: row.note,
         created_at: row.created_at,
         items,
@@ -602,8 +618,8 @@ fn hydrate_payment_record(conn: &Connection, row: PaymentRow) -> Result<PaymentR
 fn list_payment_rows(conn: &Connection) -> Result<Vec<PaymentRow>, String> {
     let mut statement = conn
         .prepare(
-            "SELECT id, invoice_number, cashier_name, subtotal, tax, total, discount,
-                    paid_cash, change_due, note, created_at
+        "SELECT id, invoice_number, cashier_name, subtotal, tax, total, discount,
+                    paid_cash, change_due, debt_amount, note, created_at
              FROM payments
              ORDER BY datetime(created_at) DESC
              LIMIT 200",
@@ -621,8 +637,9 @@ fn list_payment_rows(conn: &Connection) -> Result<Vec<PaymentRow>, String> {
                 discount: row.get(6)?,
                 paid_cash: row.get(7)?,
                 change_due: row.get(8)?,
-                note: row.get(9)?,
-                created_at: row.get(10)?,
+                debt_amount: row.get(9)?,
+                note: row.get(10)?,
+                created_at: row.get(11)?,
             })
         })
         .map_err(|err| err.to_string())?;
@@ -721,6 +738,7 @@ fn create_payment(
         discount,
         paid_cash,
         change_due,
+        debt_amount,
         note,
         items,
     } = payload;
@@ -734,13 +752,14 @@ fn create_payment(
         return Err("Cashier name is required".into());
     }
     let normalized_note = normalize_note(note);
+    let normalized_debt = debt_amount.max(0);
     let tx = conn.transaction().map_err(|err| err.to_string())?;
     tx.execute(
         "INSERT INTO payments (
             invoice_number, cashier_name, subtotal, tax, total, discount,
-            paid_cash, change_due, note
+            paid_cash, change_due, debt_amount, note
         )
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         (
             cleaned_invoice.as_str(),
             cleaned_cashier.as_str(),
@@ -750,6 +769,7 @@ fn create_payment(
             discount,
             paid_cash,
             change_due,
+            normalized_debt,
             normalized_note.as_deref(),
         ),
     )

@@ -57,6 +57,7 @@ const RevenueReport = ({ onBack }) => {
         discounts: 0,
         paid: 0,
         change: 0,
+        debt: 0,
         avg: 0,
         max: null,
         min: null,
@@ -68,6 +69,7 @@ const RevenueReport = ({ onBack }) => {
       discounts: 0,
       paid: 0,
       change: 0,
+      debt: 0,
       max: dailyReceipts[0],
       min: dailyReceipts[0],
     };
@@ -76,11 +78,13 @@ const RevenueReport = ({ onBack }) => {
       const discount = Number(receipt.discount) || 0;
       const paidCash = Number(receipt.paidCash) || 0;
       const changeDue = Number(receipt.changeDue) || 0;
+      const debtAmount = Number(receipt.debtAmount) || 0;
       acc.count += 1;
       acc.revenue += total;
       acc.discounts += discount;
       acc.paid += paidCash;
       acc.change += changeDue;
+      acc.debt += debtAmount;
       if (!acc.max || total > (Number(acc.max.total) || 0)) {
         acc.max = receipt;
       }
@@ -99,10 +103,12 @@ const RevenueReport = ({ onBack }) => {
       const name = receipt.cashierName || "Không rõ";
       const total = Number(receipt.total) || 0;
       const discount = Number(receipt.discount) || 0;
-      const current = groups.get(name) ?? { count: 0, revenue: 0, discounts: 0 };
+      const debtAmount = Number(receipt.debtAmount) || 0;
+      const current = groups.get(name) ?? { count: 0, revenue: 0, discounts: 0, debt: 0 };
       current.count += 1;
       current.revenue += total;
       current.discounts += discount;
+      current.debt += debtAmount;
       groups.set(name, current);
     });
     return Array.from(groups.entries()).map(([name, stats]) => ({
@@ -114,7 +120,17 @@ const RevenueReport = ({ onBack }) => {
   const exportReport = () => {
     if (!dailyReceipts.length) return;
     const rows = [
-      ["STT", "Số hoá đơn", "Thời gian", "Thu ngân", "Tổng tiền", "Giảm giá", "Tiền khách đưa", "Tiền thừa"],
+      [
+        "STT",
+        "Số hoá đơn",
+        "Thời gian",
+        "Thu ngân",
+        "Tổng tiền",
+        "Giảm giá",
+        "Tiền khách đưa",
+        "Tiền thừa",
+        "Tiền nợ",
+      ],
       ...dailyReceipts.map((receipt, index) => [
         index + 1,
         receipt.invoiceNumber,
@@ -124,6 +140,7 @@ const RevenueReport = ({ onBack }) => {
         Number(receipt.discount) || 0,
         Number(receipt.paidCash) || 0,
         Number(receipt.changeDue) || 0,
+        Number(receipt.debtAmount) || 0,
       ]),
     ];
     const csvContent = rows
@@ -207,6 +224,10 @@ const RevenueReport = ({ onBack }) => {
               <strong>{formatCurrency(aggregate.change)}</strong>
             </div>
             <div className="summary-card">
+              <span>Tiền nợ</span>
+              <strong>{formatCurrency(aggregate.debt)}</strong>
+            </div>
+            <div className="summary-card">
               <span>Hoá đơn trung bình</span>
               <strong>{formatCurrency(aggregate.avg)}</strong>
             </div>
@@ -226,6 +247,7 @@ const RevenueReport = ({ onBack }) => {
                     <th>Giảm giá</th>
                     <th>Tiền khách đưa</th>
                     <th>Tiền thừa</th>
+                    <th>Tiền nợ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -239,6 +261,7 @@ const RevenueReport = ({ onBack }) => {
                       <td>-{formatCurrency(receipt.discount)}</td>
                       <td>{formatCurrency(receipt.paidCash)}</td>
                       <td>{formatCurrency(receipt.changeDue)}</td>
+                      <td>{formatCurrency(receipt.debtAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -257,16 +280,18 @@ const RevenueReport = ({ onBack }) => {
                       <th>Số hoá đơn</th>
                       <th>Tổng doanh thu</th>
                       <th>Tổng giảm giá</th>
+                      <th>Tổng nợ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {cashierSummary.map((entry) => (
                       <tr key={entry.cashierName}>
-                        <td>{entry.cashierName}</td>
-                        <td>{entry.count}</td>
-                        <td>{formatCurrency(entry.revenue)}</td>
-                        <td>{formatCurrency(entry.discounts)}</td>
-                      </tr>
+                      <td>{entry.cashierName}</td>
+                      <td>{entry.count}</td>
+                      <td>{formatCurrency(entry.revenue)}</td>
+                      <td>{formatCurrency(entry.discounts)}</td>
+                      <td>{formatCurrency(entry.debt)}</td>
+                    </tr>
                     ))}
                   </tbody>
                 </table>

@@ -27,9 +27,9 @@ const formatFullTimestamp = (value) => {
   return `${date} ${time?.slice(0, 5) ?? ""}`.trim();
 };
 const STORE_PROFILE = {
-  name: "HTX POS Cafe",
-  address: "123 Đường POS, Q.1, TP.HCM",
-  phone: "0123 456 789",
+  name: "HTXDVNN Diễn Quảng",
+  address: "Xóm 4, xã Minh Châu",
+  phone: "0978227509",
   footer: "Cảm ơn quý khách và hẹn gặp lại!",
 };
 const DEFAULT_PAPER_WIDTH = "58mm";
@@ -107,6 +107,7 @@ const InvoiceHistory = ({ onBack }) => {
       total: activeInvoice.total ?? 0,
       paidCash: activeInvoice.paidCash ?? activeInvoice.total ?? 0,
       changeDue: activeInvoice.changeDue ?? 0,
+      debtAmount: activeInvoice.debtAmount ?? 0,
     });
   };
 
@@ -150,10 +151,13 @@ const InvoiceHistory = ({ onBack }) => {
                     <strong>{invoice.invoiceNumber}</strong>
                     <p>{extractTimePart(invoice.createdAt)}</p>
                   </div>
-                  <div className="invoice-meta">
-                    <span>{invoice.cashierName}</span>
-                    <strong>{formatCurrency(invoice.total)}</strong>
-                  </div>
+                <div className="invoice-meta">
+                  <span>{invoice.cashierName}</span>
+                  <strong>{formatCurrency(invoice.total)}</strong>
+                  {Number(invoice.debtAmount) > 0 && (
+                    <small className="invoice-debt">Nợ: {formatCurrency(invoice.debtAmount)}</small>
+                  )}
+                </div>
                 </button>
               ))
             ) : (
@@ -235,6 +239,12 @@ const InvoiceHistory = ({ onBack }) => {
                 <span>Tiền thừa</span>
                 <strong>{formatCurrency(activeInvoice.changeDue)}</strong>
               </div>
+              {Number(activeInvoice.debtAmount) > 0 && (
+                <div className="detail-row">
+                  <span>Tiền nợ</span>
+                  <strong>{formatCurrency(activeInvoice.debtAmount)}</strong>
+                </div>
+              )}
               {activeInvoice.note && (
                 <div className="detail-row">
                   <span>Ghi chú</span>

@@ -294,7 +294,9 @@ const POSScreen = ({ currentCashier, onOpenSettings, onOpenHistory, onOpenReport
   );
   const parsedCashGiven = Number(cashGiven) || 0;
   const changeDue = Math.max(parsedCashGiven - total, 0);
+  const outstandingDebt = Math.max(total - parsedCashGiven, 0);
   const canConfirmPayment = total > 0 && parsedCashGiven >= total && !cartHasErrors;
+  const canSubmitDebtPayment = total > 0 && !cartHasErrors && outstandingDebt > 0;
 
   // Modal thanh toán
   const openPaymentModal = useCallback(() => {
@@ -308,69 +310,84 @@ const POSScreen = ({ currentCashier, onOpenSettings, onOpenHistory, onOpenReport
     setCashGiven("");
   }, []);
 
-  const confirmPayment = useCallback(async () => {
-    if (!canConfirmPayment || isSavingPayment || cartHasErrors) return;
-    if (!cartItems.length) return;
-    const noteValue = note.trim();
-    const items = cartItems.map((item) => {
-      const effectiveUnitPrice = getEffectiveUnitPrice(item);
-      const lineSubtotal = calculateLineSubtotal(effectiveUnitPrice, item.qty);
-      return {
-        productId: typeof item.id === "number" ? item.id : null,
-        name: item.name,
-        quantity: item.qty,
-        baseUnitPrice: item.baseUnitPrice,
-        editedUnitPrice: item.editedUnitPrice,
-        effectiveUnitPrice,
-        lineSubtotal,
-        price: effectiveUnitPrice,
-        lineDiscount: 0,
-      };
-    });
-    if (!items.length) return;
-    const payload = {
-      invoiceNumber: generateInvoiceNumber(),
-      cashierName: currentCashier,
-      subtotal: cartSubtotal,
-      tax,
-      total,
-      discount: 0,
-      paidCash: parsedCashGiven,
-      changeDue,
-      note: noteValue ? noteValue : null,
-      items,
-    };
-    setIsSavingPayment(true);
-    try {
-      const savedPayment = await invoke("create_payment", { payload });
-      setPendingReceipt({
-        ...savedPayment,
-        note: savedPayment.note ?? payload.note,
-        paperWidth: DEFAULT_PAPER_WIDTH,
-        store: STORE_PROFILE,
+  const finalizePayment = useCallback(
+    async ({ allowDebt = false } = {}) => {
+      if (isSavingPayment || cartHasErrors) return;
+      if (!cartItems.length || total <= 0) return;
+      const shortfall = Math.max(total - parsedCashGiven, 0);
+      if (!allowDebt && shortfall > 0) return;
+      if (allowDebt && shortfall <= 0) return;
+      const noteValue = note.trim();
+      const items = cartItems.map((item) => {
+        const effectiveUnitPrice = getEffectiveUnitPrice(item);
+        const lineSubtotal = calculateLineSubtotal(effectiveUnitPrice, item.qty);
+        return {
+          productId: typeof item.id === "number" ? item.id : null,
+          name: item.name,
+          quantity: item.qty,
+          baseUnitPrice: item.baseUnitPrice,
+          editedUnitPrice: item.editedUnitPrice,
+          effectiveUnitPrice,
+          lineSubtotal,
+          price: effectiveUnitPrice,
+          lineDiscount: 0,
+        };
       });
-      setCartItems([]);
-      setNote("");
-      closePaymentModal();
-    } catch (error) {
-      console.error("Không thể lưu hoá đơn:", error);
-    } finally {
-      setIsSavingPayment(false);
-    }
-  }, [
-    canConfirmPayment,
-    isSavingPayment,
-    cartItems,
-    note,
-    currentCashier,
-    cartSubtotal,
-    tax,
-    total,
-    parsedCashGiven,
-    changeDue,
-    closePaymentModal,
-    cartHasErrors,
-  ]);
+      if (!items.length) return;
+      const payload = {
+        invoiceNumber: generateInvoiceNumber(),
+        cashierName: currentCashier,
+        subtotal: cartSubtotal,
+        tax,
+        total,
+        discount: 0,
+        paidCash: parsedCashGiven,
+        changeDue,
+        debtAmount: allowDebt ? shortfall : 0,
+        note: noteValue ? noteValue : null,
+        items,
+      };
+      setIsSavingPayment(true);
+      try {
+        const savedPayment = await invoke("create_payment", { payload });
+        setPendingReceipt({
+          ...savedPayment,
+          note: savedPayment.note ?? payload.note,
+          debtAmount: savedPayment.debtAmount ?? payload.debtAmount ?? 0,
+          paperWidth: DEFAULT_PAPER_WIDTH,
+          store: STORE_PROFILE,
+        });
+        setCartItems([]);
+        setNote("");
+        closePaymentModal();
+      } catch (error) {
+        console.error("Không thể lưu hoá đơn:", error);
+      } finally {
+        setIsSavingPayment(false);
+      }
+    },
+    [
+      isSavingPayment,
+      cartHasErrors,
+      cartItems,
+      total,
+      parsedCashGiven,
+      note,
+      currentCashier,
+      cartSubtotal,
+      tax,
+      changeDue,
+      closePaymentModal,
+    ],
+  );
+
+  const confirmPayment = useCallback(() => {
+    finalizePayment();
+  }, [finalizePayment]);
+
+  const confirmDebtPayment = useCallback(() => {
+    finalizePayment({ allowDebt: true });
+  }, [finalizePayment]);
 
   useEffect(() => {
     if (!showPaymentModal) return;
@@ -737,7 +754,12 @@ const POSScreen = ({ currentCashier, onOpenSettings, onOpenHistory, onOpenReport
             <div className="payment-modal" role="dialog" aria-modal="true">
               <div className="modal-header">
                 <h3>Thanh toán</h3>
-                <p className="modal-hint">Enter để xác nhận · ESC để huỷ</p>
+                <p className="modal-hint">Enter để xác nhận · ESC để huỷ · 'Cho nợ' nếu khách chưa trả đủ</p>
+                {outstandingDebt > 0 && (
+                  <p className="modal-hint debt-warning">
+                    Khách còn thiếu {formatCurrency(outstandingDebt)} - sẽ được ghi nợ khi ấn 'Cho nợ'
+                  </p>
+                )}
               </div>
               <div className="payment-row">
                 <span>Tổng phải trả</span>
@@ -783,6 +805,12 @@ const POSScreen = ({ currentCashier, onOpenSettings, onOpenHistory, onOpenReport
                   {formatCurrency(changeDue)}
                 </strong>
               </div>
+              {outstandingDebt > 0 && (
+                <div className="payment-row">
+                  <span>Còn thiếu</span>
+                  <strong className="debt-amount">{formatCurrency(outstandingDebt)}</strong>
+                </div>
+              )}
               <div className="modal-actions">
                 <button
                   className="primary-btn"
@@ -790,6 +818,14 @@ const POSScreen = ({ currentCashier, onOpenSettings, onOpenHistory, onOpenReport
                   disabled={!canConfirmPayment || isSavingPayment}
                 >
                   Xác nhận thanh toán
+                </button>
+                <button
+                  className="debt-btn"
+                  type="button"
+                  onClick={confirmDebtPayment}
+                  disabled={!canSubmitDebtPayment || isSavingPayment}
+                >
+                  Cho khách nợ
                 </button>
                 <button className="ghost-btn" onClick={closePaymentModal}>
                   Huỷ
