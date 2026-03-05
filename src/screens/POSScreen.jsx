@@ -170,12 +170,12 @@ const generateInvoiceNumber = () => {
 };
 
 const STORE_PROFILE = {
-  name: "HTX DIỄN QUẢNG",
-  address: "123 Đường POS, Q.1, TP.HCM",
-  phone: "0123 456 789",
+  name: "HTXDVNN Diễn Quảng",
+  address: "Xóm 4, xã Minh Châu",
+  phone: "0978227509",
   footer: "Cảm ơn quý khách và hẹn gặp lại!",
 };
-const DEFAULT_PAPER_WIDTH = "58mm";
+const DEFAULT_PAPER_WIDTH = "148mm";
 
 const POSScreen = ({ currentCashier, onOpenSettings, onOpenHistory, onOpenReport, onSwitchCashier }) => {
   const [searchTerm, setSearchTerm] = useState("");

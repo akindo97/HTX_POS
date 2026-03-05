@@ -32,7 +32,7 @@ const STORE_PROFILE = {
   phone: "0978227509",
   footer: "Cảm ơn quý khách và hẹn gặp lại!",
 };
-const DEFAULT_PAPER_WIDTH = "58mm";
+const DEFAULT_PAPER_WIDTH = "148mm";
 
 const InvoiceHistory = ({ onBack }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
